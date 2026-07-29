@@ -1,9 +1,31 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 app = FastAPI(
     title="Task API",
     version="1.0",
 )
+
+
+# Temporary task storage.
+# This is a normal Python list, not a database.
+tasks = [
+    {
+        "id": 1,
+        "title": "Learn FastAPI",
+        "done": False,
+    },
+    {
+        "id": 2,
+        "title": "Build a CRUD API",
+        "done": False,
+    },
+    {
+        "id": 3,
+        "title": "Upload project to GitHub",
+        "done": True,
+    },
+]
 
 
 @app.get("/")
@@ -18,3 +40,20 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@app.get("/tasks")
+def get_all_tasks():
+    return tasks
+
+
+@app.get("/tasks/{task_id}")
+def get_task(task_id: int):
+    for task in tasks:
+        if task["id"] == task_id:
+            return task
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {task_id} not found"},
+    )
