@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+from typing import Any
+
+from fastapi import Body, FastAPI, status
 from fastapi.responses import JSONResponse
 
 app = FastAPI(
@@ -7,8 +9,7 @@ app = FastAPI(
 )
 
 
-# Temporary task storage.
-# This is a normal Python list, not a database.
+# Temporary in-memory storage.
 tasks = [
     {
         "id": 1,
@@ -57,3 +58,26 @@ def get_task(task_id: int):
         status_code=404,
         content={"error": f"Task {task_id} not found"},
     )
+
+
+@app.post("/tasks", status_code=status.HTTP_201_CREATED)
+def create_task(payload: dict[str, Any] = Body(default={})):
+    title = payload.get("title")
+
+    if not isinstance(title, str) or not title.strip():
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Title is required and must not be empty"},
+        )
+
+    next_id = max((task["id"] for task in tasks), default=0) + 1
+
+    new_task = {
+        "id": next_id,
+        "title": title.strip(),
+        "done": False,
+    }
+
+    tasks.append(new_task)
+
+    return new_task
