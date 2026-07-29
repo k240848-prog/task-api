@@ -1,6 +1,6 @@
 from typing import Any
 
-from fastapi import Body, FastAPI, status
+from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 
 app = FastAPI(
@@ -81,3 +81,74 @@ def create_task(payload: dict[str, Any] = Body(default={})):
     tasks.append(new_task)
 
     return new_task
+
+
+@app.put("/tasks/{task_id}")
+def update_task(
+    task_id: int,
+    payload: dict[str, Any] = Body(default={}),
+):
+    task_to_update = None
+
+    for task in tasks:
+        if task["id"] == task_id:
+            task_to_update = task
+            break
+
+    if task_to_update is None:
+        return JSONResponse(
+            status_code=404,
+            content={"error": f"Task {task_id} not found"},
+        )
+
+    if not payload:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Request body cannot be empty"},
+        )
+
+    if "title" not in payload and "done" not in payload:
+        return JSONResponse(
+            status_code=400,
+            content={"error": "Provide title or done to update the task"},
+        )
+
+    if "title" in payload:
+        title = payload["title"]
+
+        if not isinstance(title, str) or not title.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Title must be a non-empty string"},
+            )
+
+        task_to_update["title"] = title.strip()
+
+    if "done" in payload:
+        done = payload["done"]
+
+        if not isinstance(done, bool):
+            return JSONResponse(
+                status_code=400,
+                content={"error": "Done must be true or false"},
+            )
+
+        task_to_update["done"] = done
+
+    return task_to_update
+
+
+@app.delete(
+    "/tasks/{task_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_task(task_id: int):
+    for index, task in enumerate(tasks):
+        if task["id"] == task_id:
+            tasks.pop(index)
+            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    return JSONResponse(
+        status_code=404,
+        content={"error": f"Task {task_id} not found"},
+    )
