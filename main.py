@@ -5,11 +5,13 @@ from fastapi.responses import JSONResponse
 
 app = FastAPI(
     title="Task API",
+    description="A simple in-memory CRUD API for managing tasks.",
     version="1.0",
 )
 
 
 # Temporary in-memory storage.
+# Data will reset whenever the server restarts.
 tasks = [
     {
         "id": 1,
@@ -29,7 +31,10 @@ tasks = [
 ]
 
 
-@app.get("/")
+@app.get(
+    "/",
+    summary="View API information",
+)
 def root():
     return {
         "name": "Task API",
@@ -38,39 +43,57 @@ def root():
     }
 
 
-@app.get("/health")
+@app.get(
+    "/health",
+    summary="Check API health",
+)
 def health():
     return {"status": "ok"}
 
 
-@app.get("/tasks")
+@app.get(
+    "/tasks",
+    summary="Get all tasks",
+)
 def get_all_tasks():
     return tasks
 
 
-@app.get("/tasks/{task_id}")
+@app.get(
+    "/tasks/{task_id}",
+    summary="Get a task by ID",
+)
 def get_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
             return task
 
     return JSONResponse(
-        status_code=404,
+        status_code=status.HTTP_404_NOT_FOUND,
         content={"error": f"Task {task_id} not found"},
     )
 
 
-@app.post("/tasks", status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/tasks",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a new task",
+)
 def create_task(payload: dict[str, Any] = Body(default={})):
     title = payload.get("title")
 
     if not isinstance(title, str) or not title.strip():
         return JSONResponse(
-            status_code=400,
-            content={"error": "Title is required and must not be empty"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "Title is required and must not be empty"
+            },
         )
 
-    next_id = max((task["id"] for task in tasks), default=0) + 1
+    next_id = max(
+        (task["id"] for task in tasks),
+        default=0,
+    ) + 1
 
     new_task = {
         "id": next_id,
@@ -83,7 +106,10 @@ def create_task(payload: dict[str, Any] = Body(default={})):
     return new_task
 
 
-@app.put("/tasks/{task_id}")
+@app.put(
+    "/tasks/{task_id}",
+    summary="Update an existing task",
+)
 def update_task(
     task_id: int,
     payload: dict[str, Any] = Body(default={}),
@@ -97,20 +123,22 @@ def update_task(
 
     if task_to_update is None:
         return JSONResponse(
-            status_code=404,
+            status_code=status.HTTP_404_NOT_FOUND,
             content={"error": f"Task {task_id} not found"},
         )
 
     if not payload:
         return JSONResponse(
-            status_code=400,
+            status_code=status.HTTP_400_BAD_REQUEST,
             content={"error": "Request body cannot be empty"},
         )
 
     if "title" not in payload and "done" not in payload:
         return JSONResponse(
-            status_code=400,
-            content={"error": "Provide title or done to update the task"},
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={
+                "error": "Provide title or done to update the task"
+            },
         )
 
     if "title" in payload:
@@ -118,8 +146,10 @@ def update_task(
 
         if not isinstance(title, str) or not title.strip():
             return JSONResponse(
-                status_code=400,
-                content={"error": "Title must be a non-empty string"},
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "Title must be a non-empty string"
+                },
             )
 
         task_to_update["title"] = title.strip()
@@ -129,7 +159,7 @@ def update_task(
 
         if not isinstance(done, bool):
             return JSONResponse(
-                status_code=400,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 content={"error": "Done must be true or false"},
             )
 
@@ -141,14 +171,18 @@ def update_task(
 @app.delete(
     "/tasks/{task_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a task",
 )
 def delete_task(task_id: int):
     for index, task in enumerate(tasks):
         if task["id"] == task_id:
             tasks.pop(index)
-            return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+            return Response(
+                status_code=status.HTTP_204_NO_CONTENT
+            )
 
     return JSONResponse(
-        status_code=404,
+        status_code=status.HTTP_404_NOT_FOUND,
         content={"error": f"Task {task_id} not found"},
     )
