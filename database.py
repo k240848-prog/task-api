@@ -1,15 +1,23 @@
 import sqlite3
 from pathlib import Path
+from typing import Any
 
 
-# Store tasks.db inside the project folder.
 DATABASE_PATH = Path(__file__).resolve().parent / "tasks.db"
 
 
-def initialize_database() -> None:
-    """Create the tasks database, table, and initial sample data."""
+def get_connection() -> sqlite3.Connection:
+    """Create and return a connection to the SQLite database."""
 
     connection = sqlite3.connect(DATABASE_PATH)
+    connection.row_factory = sqlite3.Row
+    return connection
+
+
+def initialize_database() -> None:
+    """Create the table and insert sample tasks only when empty."""
+
+    connection = get_connection()
 
     try:
         connection.execute(
@@ -27,7 +35,6 @@ def initialize_database() -> None:
             "SELECT COUNT(*) FROM tasks"
         ).fetchone()[0]
 
-        # Seed the database only when the table is empty.
         if task_count == 0:
             example_tasks = [
                 ("Learn FastAPI", 0),
@@ -44,6 +51,60 @@ def initialize_database() -> None:
             )
 
         connection.commit()
+
+    finally:
+        connection.close()
+
+
+def convert_row_to_task(row: sqlite3.Row) -> dict[str, Any]:
+    """Convert a SQLite row into the API task format."""
+
+    return {
+        "id": row["id"],
+        "title": row["title"],
+        "done": bool(row["done"]),
+    }
+
+
+def fetch_all_tasks() -> list[dict[str, Any]]:
+    """Return every task stored in SQLite."""
+
+    connection = get_connection()
+
+    try:
+        rows = connection.execute(
+            """
+            SELECT id, title, done
+            FROM tasks
+            ORDER BY id
+            """
+        ).fetchall()
+
+        return [convert_row_to_task(row) for row in rows]
+
+    finally:
+        connection.close()
+
+
+def fetch_task_by_id(task_id: int) -> dict[str, Any] | None:
+    """Return one task by ID, or None when it does not exist."""
+
+    connection = get_connection()
+
+    try:
+        row = connection.execute(
+            """
+            SELECT id, title, done
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return convert_row_to_task(row)
 
     finally:
         connection.close()

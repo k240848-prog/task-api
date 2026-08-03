@@ -1,5 +1,9 @@
 from typing import Any
-from database import initialize_database
+from database import (
+    fetch_all_tasks,
+    fetch_task_by_id,
+    initialize_database,
+)
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 
@@ -57,23 +61,22 @@ def health():
     summary="Get all tasks",
 )
 def get_all_tasks():
-    return tasks
-
+    return fetch_all_tasks()
 
 @app.get(
     "/tasks/{task_id}",
     summary="Get a task by ID",
 )
 def get_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
+    task = fetch_task_by_id(task_id)
 
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"error": f"Task {task_id} not found"},
-    )
+    if task is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "Task not found"},
+        )
 
+    return task
 
 @app.post(
     "/tasks",
