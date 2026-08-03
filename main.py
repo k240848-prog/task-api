@@ -1,40 +1,26 @@
 from typing import Any
+
+from fastapi import Body, FastAPI, Response, status
+from fastapi.responses import JSONResponse
+
 from database import (
+    delete_task_from_database,
     fetch_all_tasks,
     fetch_task_by_id,
     initialize_database,
     insert_task,
+    update_task_in_database,
 )
-from fastapi import Body, FastAPI, Response, status
-from fastapi.responses import JSONResponse
+
 
 app = FastAPI(
     title="Task API",
-    description="A simple in-memory CRUD API for managing tasks.",
+    description="A simple SQLite CRUD API for managing tasks.",
     version="1.0",
 )
+
+
 initialize_database()
-
-
-# Temporary in-memory storage.
-# Data will reset whenever the server restarts.
-tasks = [
-    {
-        "id": 1,
-        "title": "Learn FastAPI",
-        "done": False,
-    },
-    {
-        "id": 2,
-        "title": "Build a CRUD API",
-        "done": False,
-    },
-    {
-        "id": 3,
-        "title": "Upload project to GitHub",
-        "done": True,
-    },
-]
 
 
 @app.get(
@@ -64,6 +50,7 @@ def health():
 def get_all_tasks():
     return fetch_all_tasks()
 
+
 @app.get(
     "/tasks/{task_id}",
     summary="Get a task by ID",
@@ -78,6 +65,8 @@ def get_task(task_id: int):
         )
 
     return task
+
+
 @app.post(
     "/tasks",
     status_code=status.HTTP_201_CREATED,
@@ -96,6 +85,7 @@ def create_task(payload: dict[str, Any] = Body(default={})):
 
     return insert_task(title.strip())
 
+
 @app.put(
     "/tasks/{task_id}",
     summary="Update an existing task",
@@ -104,17 +94,12 @@ def update_task(
     task_id: int,
     payload: dict[str, Any] = Body(default={}),
 ):
-    task_to_update = None
+    existing_task = fetch_task_by_id(task_id)
 
-    for task in tasks:
-        if task["id"] == task_id:
-            task_to_update = task
-            break
-
-    if task_to_update is None:
+    if existing_task is None:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
-            content={"error": f"Task {task_id} not found"},
+            content={"error": "Task not found"},
         )
 
     if not payload:
@@ -131,6 +116,9 @@ def update_task(
             },
         )
 
+    updated_title = existing_task["title"]
+    updated_done = existing_task["done"]
+
     if "title" in payload:
         title = payload["title"]
 
@@ -142,7 +130,7 @@ def update_task(
                 },
             )
 
-        task_to_update["title"] = title.strip()
+        updated_title = title.strip()
 
     if "done" in payload:
         done = payload["done"]
@@ -153,9 +141,21 @@ def update_task(
                 content={"error": "Done must be true or false"},
             )
 
-        task_to_update["done"] = done
+        updated_done = done
 
-    return task_to_update
+    updated_task = update_task_in_database(
+        task_id=task_id,
+        title=updated_title,
+        done=updated_done,
+    )
+
+    if updated_task is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "Task not found"},
+        )
+
+    return updated_task
 
 
 @app.delete(
@@ -164,15 +164,14 @@ def update_task(
     summary="Delete a task",
 )
 def delete_task(task_id: int):
-    for index, task in enumerate(tasks):
-        if task["id"] == task_id:
-            tasks.pop(index)
+    deleted = delete_task_from_database(task_id)
 
-            return Response(
-                status_code=status.HTTP_204_NO_CONTENT
-            )
+    if not deleted:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": "Task not found"},
+        )
 
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"error": f"Task {task_id} not found"},
+    return Response(
+        status_code=status.HTTP_204_NO_CONTENT
     )

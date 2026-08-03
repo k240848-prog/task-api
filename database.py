@@ -15,7 +15,7 @@ def get_connection() -> sqlite3.Connection:
 
 
 def initialize_database() -> None:
-    """Create the table and add sample tasks only when empty."""
+    """Create the tasks table and insert sample tasks when empty."""
 
     connection = get_connection()
 
@@ -67,7 +67,7 @@ def convert_row_to_task(row: sqlite3.Row) -> dict[str, Any]:
 
 
 def fetch_all_tasks() -> list[dict[str, Any]]:
-    """Return every task stored in SQLite."""
+    """Return all tasks stored in SQLite."""
 
     connection = get_connection()
 
@@ -87,7 +87,7 @@ def fetch_all_tasks() -> list[dict[str, Any]]:
 
 
 def fetch_task_by_id(task_id: int) -> dict[str, Any] | None:
-    """Return one task by ID or None if it does not exist."""
+    """Return one task or None if the task does not exist."""
 
     connection = get_connection()
 
@@ -111,7 +111,7 @@ def fetch_task_by_id(task_id: int) -> dict[str, Any] | None:
 
 
 def insert_task(title: str) -> dict[str, Any]:
-    """Insert a new task and return the created database row."""
+    """Insert and return a new task."""
 
     connection = get_connection()
 
@@ -138,6 +138,67 @@ def insert_task(title: str) -> dict[str, Any]:
         ).fetchone()
 
         return convert_row_to_task(row)
+
+    finally:
+        connection.close()
+
+
+def update_task_in_database(
+    task_id: int,
+    title: str,
+    done: bool,
+) -> dict[str, Any] | None:
+    """Update a task and return it, or None if it does not exist."""
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            UPDATE tasks
+            SET title = ?, done = ?
+            WHERE id = ?
+            """,
+            (title, int(done), task_id),
+        )
+
+        if cursor.rowcount == 0:
+            return None
+
+        connection.commit()
+
+        row = connection.execute(
+            """
+            SELECT id, title, done
+            FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        ).fetchone()
+
+        return convert_row_to_task(row)
+
+    finally:
+        connection.close()
+
+
+def delete_task_from_database(task_id: int) -> bool:
+    """Delete a task and return True if it existed."""
+
+    connection = get_connection()
+
+    try:
+        cursor = connection.execute(
+            """
+            DELETE FROM tasks
+            WHERE id = ?
+            """,
+            (task_id,),
+        )
+
+        connection.commit()
+
+        return cursor.rowcount > 0
 
     finally:
         connection.close()
