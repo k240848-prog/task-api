@@ -1,5 +1,5 @@
 from typing import Any
-
+from database import initialize_database
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 
@@ -8,6 +8,7 @@ app = FastAPI(
     description="A simple in-memory CRUD API for managing tasks.",
     version="1.0",
 )
+initialize_database()
 
 
 # Temporary in-memory storage.
