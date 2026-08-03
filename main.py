@@ -3,6 +3,7 @@ from database import (
     fetch_all_tasks,
     fetch_task_by_id,
     initialize_database,
+    insert_task,
 )
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
@@ -77,7 +78,6 @@ def get_task(task_id: int):
         )
 
     return task
-
 @app.post(
     "/tasks",
     status_code=status.HTTP_201_CREATED,
@@ -94,21 +94,7 @@ def create_task(payload: dict[str, Any] = Body(default={})):
             },
         )
 
-    next_id = max(
-        (task["id"] for task in tasks),
-        default=0,
-    ) + 1
-
-    new_task = {
-        "id": next_id,
-        "title": title.strip(),
-        "done": False,
-    }
-
-    tasks.append(new_task)
-
-    return new_task
-
+    return insert_task(title.strip())
 
 @app.put(
     "/tasks/{task_id}",
