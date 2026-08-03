@@ -1,37 +1,76 @@
-# Task API
+# Task API with SQLite
 
-A simple CRUD API built with Python and FastAPI for managing a to-do list.
+A simple CRUD API built with FastAPI and SQLite for creating, reading, updating, and deleting tasks.
 
-The API supports creating, reading, updating, and deleting tasks. Tasks are stored temporarily in memory, and Swagger UI provides interactive API documentation.
+The project originally stored tasks in an in-memory Python list. It was later migrated to SQLite so that task data remains available after the server restarts.
 
 ## Features
 
-- Create a task
+- Create a new task
 - View all tasks
-- View one task by ID
+- View a task by ID
 - Update a task
 - Delete a task
-- Input validation
-- JSON error responses
-- Swagger UI documentation
-- Health check endpoint
+- Persistent SQLite storage
+- Automatic database and table creation
+- Automatic sample-data seeding when the table is empty
+- Input validation and appropriate HTTP status codes
+- Interactive Swagger API documentation
 
-## Technologies
+## Technologies Used
 
 - Python
 - FastAPI
+- SQLite
 - Uvicorn
+- DB Browser for SQLite
 - Git and GitHub
+
+## Project Structure
+
+```text
+task-api/
+├── main.py
+├── database.py
+├── sql_queries.sql
+├── database-viewer.png
+├── requirements.txt
+├── README.md
+├── .gitignore
+└── tasks.db
+```
+
+The `tasks.db` file is generated automatically and is excluded from Git.
+
+## Database Structure
+
+The application uses a SQLite database named:
+
+```text
+tasks.db
+```
+
+It contains a `tasks` table with the following columns:
+
+| Column | Type | Description |
+|---|---|---|
+| id | INTEGER | Primary key with automatic increment |
+| title | TEXT | Required task title |
+| done | INTEGER | Completion status: `0` for false and `1` for true |
+
+The table is created automatically when the application starts.
+
+If the table is empty, the application inserts three sample tasks.
 
 ## Installation
 
 Clone the repository:
 
 ```bash
-git clone YOUR-GITHUB-REPOSITORY-URL
+git clone https://github.com/k240848-prog/task-api.git
 ```
 
-Open the project folder:
+Move into the project folder:
 
 ```bash
 cd task-api
@@ -46,44 +85,40 @@ python -m venv venv
 Activate it on Windows Command Prompt:
 
 ```bash
-venv\Scripts\activate.bat
-```
-
-Activate it on Windows PowerShell:
-
-```powershell
-venv\Scripts\Activate.ps1
+venv\Scripts\activate
 ```
 
 Install the required packages:
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-## Run the API
+## Running the Application
+
+Start the FastAPI development server:
 
 ```bash
 python -m uvicorn main:app --reload
 ```
 
-Open the API:
-
-```text
-http://127.0.0.1:8000
-```
-
-Open Swagger UI:
+Open the Swagger documentation:
 
 ```text
 http://127.0.0.1:8000/docs
 ```
 
-## Endpoints
+Open the API directly:
 
-| Method | Endpoint | Description | Success Code |
+```text
+http://127.0.0.1:8000
+```
+
+## API Endpoints
+
+| Method | Endpoint | Description | Success Status |
 |---|---|---|---|
-| GET | `/` | View API information | 200 |
+| GET | `/` | Display API information | 200 |
 | GET | `/health` | Check API health | 200 |
 | GET | `/tasks` | Get all tasks | 200 |
 | GET | `/tasks/{task_id}` | Get one task | 200 |
@@ -91,51 +126,97 @@ http://127.0.0.1:8000/docs
 | PUT | `/tasks/{task_id}` | Update a task | 200 |
 | DELETE | `/tasks/{task_id}` | Delete a task | 204 |
 
-## Example Task
+Unknown task IDs return:
+
+```text
+404 Not Found
+```
+
+Invalid request data returns:
+
+```text
+400 Bad Request
+```
+
+## Example Requests
+
+### Create a Task
 
 ```json
 {
-  "id": 1,
-  "title": "Learn FastAPI",
+  "title": "Learn SQLite"
+}
+```
+
+Example response:
+
+```json
+{
+  "id": 4,
+  "title": "Learn SQLite",
   "done": false
 }
 ```
 
-## Example Request
+### Update a Task
 
-```bash
-curl -i -X POST http://127.0.0.1:8000/tasks -H "Content-Type: application/json" -d "{\"title\":\"Buy milk\"}"
+```json
+{
+  "title": "Complete SQLite assignment",
+  "done": true
+}
 ```
 
-Example output:
+### Delete a Task
 
 ```text
-HTTP/1.1 201 Created
-content-type: application/json
-
-{"id":4,"title":"Buy milk","done":false}
+DELETE /tasks/4
 ```
 
-## Status Codes
+A successful deletion returns:
 
-| Code | Meaning |
-|---|---|
-| 200 | Request successful |
-| 201 | Task created |
-| 204 | Task deleted |
-| 400 | Invalid request |
-| 404 | Task not found |
+```text
+204 No Content
+```
 
-## Swagger UI
+## SQL Queries
 
-![Swagger UI](swagger-ui.png)
+The `sql_queries.sql` file contains queries used to explore the database.
 
-## In-Memory Storage
+```sql
+SELECT * FROM tasks;
 
-This project does not use a database. Tasks are stored in a Python list while the server is running.
+SELECT * FROM tasks WHERE done = 1;
 
-When the server restarts, newly created tasks and updates disappear, and the original example tasks are restored.
+SELECT COUNT(*) AS total_tasks FROM tasks;
+
+UPDATE tasks SET done = 1;
+
+DELETE FROM tasks WHERE done = 1;
+```
+
+## Database Viewer
+
+The SQLite database was opened and explored using DB Browser for SQLite.
+
+![SQLite database displayed in DB Browser](database-viewer.png)
+
+## Persistence
+
+Tasks are stored inside the SQLite database instead of an in-memory Python list.
+
+This means that created and updated tasks remain available after the FastAPI server is stopped and restarted.
+
+## Development Stages
+
+The project was completed through separate Git commits:
+
+1. Stage 0 — Created the SQLite database
+2. Stage 1 — Added database read endpoints
+3. Stage 2 — Added database task insertion
+4. Stage 3 — Added SQL update and delete operations
+5. Stage 4 — Explored SQLite using SQL queries
+6. Stage 5 — Added database documentation
 
 ## Author
-
-Created for the FlyRank Backend AI Engineering internship assignment.
+Ali Safdar
