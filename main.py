@@ -3,75 +3,53 @@ from typing import Any
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 
+from app.container import task_service
+
 app = FastAPI(
     title="Task API",
-    description="A simple in-memory CRUD API for managing tasks.",
-    version="1.0",
+    description="A PostgreSQL-backed CRUD API for managing tasks.",
+    version="2.0",
 )
 
 
-# Temporary in-memory storage.
-# Data will reset whenever the server restarts.
-tasks = [
-    {
-        "id": 1,
-        "title": "Learn FastAPI",
-        "done": False,
-    },
-    {
-        "id": 2,
-        "title": "Build a CRUD API",
-        "done": False,
-    },
-    {
-        "id": 3,
-        "title": "Upload project to GitHub",
-        "done": True,
-    },
-]
-
-
-@app.get(
-    "/",
-    summary="View API information",
-)
+@app.get("/", summary="View API information")
 def root():
     return {
         "name": "Task API",
-        "version": "1.0",
+        "version": "2.0",
+        "storage": "PostgreSQL",
         "endpoints": ["/tasks"],
     }
 
 
-@app.get(
-    "/health",
-    summary="Check API health",
-)
+@app.get("/health", summary="Check API health")
 def health():
-    return {"status": "ok"}
+    try:
+        task_service.check_health()
+        return {"status": "ok", "database": "connected"}
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "error", "database": "unavailable"},
+        )
 
 
-@app.get(
-    "/tasks",
-    summary="Get all tasks",
-)
+@app.get("/tasks", summary="Get all tasks")
 def get_all_tasks():
-    return tasks
+    return task_service.get_all_tasks()
 
 
-@app.get(
-    "/tasks/{task_id}",
-    summary="Get a task by ID",
-)
+@app.get("/tasks/{task_id}", summary="Get a task by ID")
 def get_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
+    task = task_service.get_task(task_id)
 
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"error": f"Task {task_id} not found"},
-    )
+    if task is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": f"Task {task_id} not found"},
+        )
+
+    return task
 
 
 @app.post(
@@ -85,43 +63,20 @@ def create_task(payload: dict[str, Any] = Body(default={})):
     if not isinstance(title, str) or not title.strip():
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "error": "Title is required and must not be empty"
-            },
+            content={"error": "Title is required and must not be empty"},
         )
 
-    next_id = max(
-        (task["id"] for task in tasks),
-        default=0,
-    ) + 1
-
-    new_task = {
-        "id": next_id,
-        "title": title.strip(),
-        "done": False,
-    }
-
-    tasks.append(new_task)
-
-    return new_task
+    return task_service.create_task(title.strip())
 
 
-@app.put(
-    "/tasks/{task_id}",
-    summary="Update an existing task",
-)
+@app.put("/tasks/{task_id}", summary="Update an existing task")
 def update_task(
     task_id: int,
     payload: dict[str, Any] = Body(default={}),
 ):
-    task_to_update = None
+    existing_task = task_service.get_task(task_id)
 
-    for task in tasks:
-        if task["id"] == task_id:
-            task_to_update = task
-            break
-
-    if task_to_update is None:
+    if existing_task is None:
         return JSONResponse(
             status_code=status.HTTP_404_NOT_FOUND,
             content={"error": f"Task {task_id} not found"},
@@ -136,36 +91,43 @@ def update_task(
     if "title" not in payload and "done" not in payload:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={
-                "error": "Provide title or done to update the task"
-            },
+            content={"error": "Provide title or done to update the task"},
         )
+
+    updated_title = existing_task["title"]
+    updated_done = existing_task["done"]
 
     if "title" in payload:
         title = payload["title"]
-
         if not isinstance(title, str) or not title.strip():
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                content={
-                    "error": "Title must be a non-empty string"
-                },
+                content={"error": "Title must be a non-empty string"},
             )
-
-        task_to_update["title"] = title.strip()
+        updated_title = title.strip()
 
     if "done" in payload:
         done = payload["done"]
-
         if not isinstance(done, bool):
             return JSONResponse(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 content={"error": "Done must be true or false"},
             )
+        updated_done = done
 
-        task_to_update["done"] = done
+    updated_task = task_service.update_task(
+        task_id=task_id,
+        title=updated_title,
+        done=updated_done,
+    )
 
-    return task_to_update
+    if updated_task is None:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": f"Task {task_id} not found"},
+        )
+
+    return updated_task
 
 
 @app.delete(
@@ -174,15 +136,12 @@ def update_task(
     summary="Delete a task",
 )
 def delete_task(task_id: int):
-    for index, task in enumerate(tasks):
-        if task["id"] == task_id:
-            tasks.pop(index)
+    deleted = task_service.delete_task(task_id)
 
-            return Response(
-                status_code=status.HTTP_204_NO_CONTENT
-            )
+    if not deleted:
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": f"Task {task_id} not found"},
+        )
 
-    return JSONResponse(
-        status_code=status.HTTP_404_NOT_FOUND,
-        content={"error": f"Task {task_id} not found"},
-    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

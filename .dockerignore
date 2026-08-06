@@ -1,9 +1,9 @@
-venv/
-__pycache__/
+.git
+.gitignore
+venv
+__pycache__
 *.pyc
 .env
-.pytest_cache/
-.vscode/
 tasks.db
 tasks.db-journal
 *.sqbpro

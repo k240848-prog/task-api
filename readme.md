@@ -1,141 +1,123 @@
-# Task API
+# Task API — FastAPI, PostgreSQL and Docker
 
-A simple CRUD API built with Python and FastAPI for managing a to-do list.
+This project runs a FastAPI CRUD service and PostgreSQL together with Docker Compose. Task data is stored in a named Docker volume, so it survives application and container restarts.
 
-The API supports creating, reading, updating, and deleting tasks. Tasks are stored temporarily in memory, and Swagger UI provides interactive API documentation.
-
-## Features
-
-- Create a task
-- View all tasks
-- View one task by ID
-- Update a task
-- Delete a task
-- Input validation
-- JSON error responses
-- Swagger UI documentation
-- Health check endpoint
-
-## Technologies
-
-- Python
-- FastAPI
-- Uvicorn
-- Git and GitHub
-
-## Installation
-
-Clone the repository:
-
-```bash
-git clone YOUR-GITHUB-REPOSITORY-URL
-```
-
-Open the project folder:
-
-```bash
-cd task-api
-```
-
-Create a virtual environment:
-
-```bash
-python -m venv venv
-```
-
-Activate it on Windows Command Prompt:
-
-```bash
-venv\Scripts\activate.bat
-```
-
-Activate it on Windows PowerShell:
-
-```powershell
-venv\Scripts\Activate.ps1
-```
-
-Install the required packages:
-
-```bash
-python -m pip install -r requirements.txt
-```
-
-## Run the API
-
-```bash
-python -m uvicorn main:app --reload
-```
-
-Open the API:
+## Architecture
 
 ```text
-http://127.0.0.1:8000
+HTTP routes (main.py)
+        ↓
+TaskService (app/service.py)
+        ↓
+TaskRepository interface (app/repositories/base.py)
+        ↓
+PostgresTaskRepository (app/repositories/postgres.py)
+```
+
+The in-memory repository is retained in `app/repositories/memory.py` and implements the same interface. Storage selection is isolated to `app/container.py`.
+
+### Honest A2 note
+
+The original A2 submission was a single-file in-memory API and did not already contain separate route, service and repository layers. For this task it was first refactored into those layers. The public API routes, request bodies, response shapes and status codes were preserved. After the refactor, PostgreSQL was introduced through the repository implementation and the storage wiring in `app/container.py`; `TaskService` contains no SQL and the routes do not import `psycopg`.
+
+## Files
+
+```text
+app/
+  container.py
+  service.py
+  repositories/
+    base.py
+    memory.py
+    postgres.py
+main.py
+init.sql
+Dockerfile
+docker-compose.yml
+.env.example
+requirements.txt
+```
+
+## Start the complete stack
+
+Create the local environment file:
+
+```cmd
+copy .env.example .env
+```
+
+Build and start the app and database:
+
+```cmd
+docker compose up --build
 ```
 
 Open Swagger UI:
 
 ```text
-http://127.0.0.1:8000/docs
+http://localhost:8000/docs
 ```
 
-## Endpoints
-
-| Method | Endpoint | Description | Success Code |
-|---|---|---|---|
-| GET | `/` | View API information | 200 |
-| GET | `/health` | Check API health | 200 |
-| GET | `/tasks` | Get all tasks | 200 |
-| GET | `/tasks/{task_id}` | Get one task | 200 |
-| POST | `/tasks` | Create a task | 201 |
-| PUT | `/tasks/{task_id}` | Update a task | 200 |
-| DELETE | `/tasks/{task_id}` | Delete a task | 204 |
-
-## Example Task
-
-```json
-{
-  "id": 1,
-  "title": "Learn FastAPI",
-  "done": false
-}
-```
-
-## Example Request
-
-```bash
-curl -i -X POST http://127.0.0.1:8000/tasks -H "Content-Type: application/json" -d "{\"title\":\"Buy milk\"}"
-```
-
-Example output:
+Health check:
 
 ```text
-HTTP/1.1 201 Created
-content-type: application/json
-
-{"id":4,"title":"Buy milk","done":false}
+http://localhost:8000/health
 ```
 
-## Status Codes
+## API endpoints
 
-| Code | Meaning |
-|---|---|
-| 200 | Request successful |
-| 201 | Task created |
-| 204 | Task deleted |
-| 400 | Invalid request |
-| 404 | Task not found |
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/` | API information |
+| GET | `/health` | App and database health |
+| GET | `/tasks` | List tasks |
+| GET | `/tasks/{task_id}` | Get one task |
+| POST | `/tasks` | Create task |
+| PUT | `/tasks/{task_id}` | Update task |
+| DELETE | `/tasks/{task_id}` | Delete task |
 
-## Swagger UI
+## Database initialization
 
-![Swagger UI](swagger-ui.png)
+`init.sql` creates the `tasks` table and inserts three sample tasks only when the table is empty. PostgreSQL runs with the named volume `postgres_data`.
 
-## In-Memory Storage
+## Persistence proof
 
-This project does not use a database. Tasks are stored in a Python list while the server is running.
+1. Start the stack with `docker compose up --build -d`.
+2. Create a task in Swagger UI, for example `{"title": "Persistence test"}`.
+3. Confirm it appears in `GET /tasks`.
+4. Stop and remove the containers without deleting the volume:
 
-When the server restarts, newly created tasks and updates disappear, and the original example tasks are restored.
+```cmd
+docker compose down
+```
 
-## Author
+5. Start the stack again:
 
-Created for the FlyRank Backend AI Engineering internship assignment.
+```cmd
+docker compose up -d
+```
+
+6. Run `GET /tasks` again. The `Persistence test` row remains because PostgreSQL data is stored in the named volume.
+
+Do not use `docker compose down -v` during the persistence test because `-v` intentionally deletes the named volume.
+
+## Environment variables
+
+`.env` is ignored by Git. `.env.example` is committed as the template.
+
+```env
+POSTGRES_DB=taskdb
+POSTGRES_USER=taskuser
+POSTGRES_PASSWORD=taskpass
+DATABASE_URL=postgresql://taskuser:taskpass@db:5432/taskdb
+```
+
+## Useful commands
+
+```cmd
+docker compose up --build
+docker compose ps
+docker compose logs -f app
+docker compose logs -f db
+docker compose down
+```
