@@ -230,13 +230,36 @@ def protected_profile(
     if (
         not authorization
         or not authorization.startswith("Bearer ")
-        or len(authorization.removeprefix("Bearer ").strip()) == 0
     ):
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"error": "Access token required"},
         )
 
-    return {
-        "message": "Token received but not verified yet"
-    }        
+    token = authorization.removeprefix("Bearer ").strip()
+
+    if not token:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "Access token required"},
+        )
+
+    try:
+        response = supabase.auth.get_user(token)
+
+        user = response.user
+
+        if user is None:
+            raise ValueError("Invalid user")
+
+        return {
+            "id": user.id,
+            "email": user.email,
+            "created_at": str(user.created_at),
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "Invalid or expired token"},
+        )
