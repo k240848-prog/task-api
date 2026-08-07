@@ -2,7 +2,7 @@ from typing import Any
 from supabase_client import supabase
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
-
+from fastapi import Body, FastAPI, Header, Response, status
 from app.container import task_service
 
 app = FastAPI(
@@ -214,3 +214,29 @@ def login(payload: dict[str, Any] = Body(default={})):
             status_code=status.HTTP_401_UNAUTHORIZED,
             content={"error": "Invalid login credentials"},
         )
+
+
+@app.get("/public/info")
+def public_info():
+    return {
+        "message": "Welcome stranger! This info is public."
+    }
+
+
+@app.get("/protected/profile")
+def protected_profile(
+    authorization: str | None = Header(default=None),
+):
+    if (
+        not authorization
+        or not authorization.startswith("Bearer ")
+        or len(authorization.removeprefix("Bearer ").strip()) == 0
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "Access token required"},
+        )
+
+    return {
+        "message": "Token received but not verified yet"
+    }        
