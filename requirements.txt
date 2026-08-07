@@ -19,6 +19,8 @@ multidict==6.7.1
 packaging==26.3
 postgrest==2.31.0
 propcache==0.5.2
+psycopg==3.3.4
+psycopg-binary==3.3.4
 pycparser==3.0
 pydantic==2.13.4
 pydantic_core==2.46.4
@@ -33,6 +35,7 @@ supabase-auth==2.31.0
 supabase-functions==2.31.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
+tzdata==2026.3
 uvicorn==0.51.0
 websockets==15.0.1
 yarl==1.24.5

@@ -1,5 +1,5 @@
 from typing import Any
-
+from supabase_client import supabase
 from fastapi import Body, FastAPI, Response, status
 from fastapi.responses import JSONResponse
 
@@ -145,3 +145,72 @@ def delete_task(task_id: int):
         )
 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+@app.post(
+    "/auth/signup",
+    status_code=status.HTTP_201_CREATED,
+    summary="Sign up a new user",
+)
+def signup(payload: dict[str, Any] = Body(default={})):
+    email = payload.get("email")
+    password = payload.get("password")
+
+    if not email or not password:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Email and password are required"},
+        )
+
+    try:
+        response = supabase.auth.sign_up(
+            {
+                "email": email,
+                "password": password,
+            }
+        )
+
+        return {
+            "user": {
+                "id": response.user.id,
+                "email": response.user.email,
+            }
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Unable to create account"},
+        )
+
+
+@app.post(
+    "/auth/login",
+    summary="Log in and receive JWT tokens",
+)
+def login(payload: dict[str, Any] = Body(default={})):
+    email = payload.get("email")
+    password = payload.get("password")
+
+    if not email or not password:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Email and password are required"},
+        )
+
+    try:
+        response = supabase.auth.sign_in_with_password(
+            {
+                "email": email,
+                "password": password,
+            }
+        )
+
+        return {
+            "access_token": response.session.access_token,
+            "refresh_token": response.session.refresh_token,
+        }
+
+    except Exception:
+        return JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"error": "Invalid login credentials"},
+        )
